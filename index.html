@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主機監控工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #0e4b99 100%);
+            min-height: 100vh;
+            color: #e8eaed;
+            padding: 20px;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        /* 背景動畫效果 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 20%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: rgba(13, 17, 23, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 35px;
+            box-shadow: 
+                0 32px 64px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .header h1 {
+            font-size: 2.8em;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #64b3f4 0%, #c2e9fb 50%, #a8e6cf 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(100, 179, 244, 0.3);
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #a8b2d1;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .diagnostic-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 35px;
+            margin-bottom: 35px;
+        }
+
+        .panel {
+            background: linear-gradient(135deg, rgba(22, 27, 34, 0.9) 0%, rgba(13, 17, 23, 0.9) 100%);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(100, 179, 244, 0.5), transparent);
+        }
+
+        .panel-title {
+            font-size: 1.4em;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #e8eaed;
+            border-bottom: 2px solid rgba(100, 179, 244, 0.2);
+            padding-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .panel-content {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .panel-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 高質感按鈕設計 */
+        .btn {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: #e8eaed;
+            border: 1px solid rgba(100, 179, 244, 0.2);
+            padding: 14px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 6px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            box-shadow: 
+                0 4px 15px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 
+                0 8px 25px rgba(0, 0, 0, 0.3),
+                0 0 20px rgba(100, 179, 244, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: rgba(100, 179, 244, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+            transition: all 0.1s ease;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #7c2d12 0%, #dc2626 100%);
+            border-color: rgba(239, 68, 68, 0.3);
+            box-shadow: 
+                0 4px 15px rgba(220, 38, 38, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 
+                0 8px 25px rgba(220, 38, 38, 0.3),
+                0 0 20px rgba(239, 68, 68, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+            border-color: rgba(34, 197, 94, 0.3);
+            box-shadow: 
+                0 4px 15px rgba(22, 163, 74, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-success:hover {
+            box-shadow: 
+                0 8px 25px rgba(22, 163, 74, 0.3),
+                0 0 20px rgba(34, 197, 94, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: rgba(34, 197, 94, 0.5);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #92400e 0%, #f59e0b 100%);
+            border-color: rgba(245, 158, 11, 0.3);
+            box-shadow: 
+                0 4px 15px rgba(245, 158, 11, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-warning:hover {
+            box-shadow: 
+                0 8px 25px rgba(245, 158, 11, 0.3),
+                0 0 20px rgba(245, 158, 11, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 
+                0 4px 15px rgba(59, 130, 246, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-info:hover {
+            box-shadow: 
+                0 8px 25px rgba(59, 130, 246, 0.3),
+                0 0 20px rgba(59, 130, 246, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .host-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin: 25px 0;
+        }
+
+        .host-item {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid rgba(100, 179, 244, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            backdrop-filter: blur(10px);
+            box-shadow: 
+                0 4px 15px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .host-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(100, 179, 244, 0.3);
+            box-shadow: 
+                0 8px 25px rgba(0, 0, 0, 0.3),
+                0 0 20px rgba(100, 179, 244, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .host-item.testing {
+            border-color: rgba(245, 158, 11, 0.5);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(92, 400, 14, 0.1) 100%);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+        }
+
+        .host-item.online {
+            border-color: rgba(34, 197, 94, 0.5);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(20, 83, 45, 0.1) 100%);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+        }
+
+        .host-item.offline {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(124, 45, 18, 0.1) 100%);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+        }
+
+        .host-item.warning {
+            border-color: rgba(245, 158, 11, 0.5);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(146, 64, 14, 0.1) 100%);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+        }
+
+        .host-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .host-name {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #64b3f4;
+        }
+
+        .host-type {
+            font-size: 0.8em;
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        .host-type.custom {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .host-type.default {
+            background: rgba(100, 179, 244, 0.2);
+            color: #64b3f4;
+            border: 1px solid rgba(100, 179, 244, 0.3);
+        }
+
+        /* 快速動作卡片樣式 */
+        .quick-action-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid rgba(100, 179, 244, 0.1);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .quick-action-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(100, 179, 244, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .quick-action-card:hover::before {
+            left: 100%;
+        }
+
+        .quick-action-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(100, 179, 244, 0.3);
+            box-shadow: 
+                0 12px 30px rgba(0, 0, 0, 0.3),
+                0 0 25px rgba(100, 179, 244, 0.15);
+        }
+
+        .quick-action-card:active {
+            transform: translateY(-2px);
+            transition: all 0.1s ease;
+        }
+
+        .host-url {
+            font-size: 0.9em;
+            color: #a8b2d1;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        .host-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #64748b;
+        }
+
+        .status-dot.online {
+            background: #22c55e;
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        }
+
+        .status-dot.offline {
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+
+        .status-dot.warning {
+            background: #f59e0b;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+
+        .status-dot.testing {
+            background: #f59e0b;
+            animation: pulse 1.5s infinite;
+        }
+
+        .host-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.8em;
+            margin-top: 12px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .detail-label {
+            color: #a8b2d1;
+        }
+
+        .detail-value {
+            color: #e8eaed;
+            font-weight: 600;
+        }
+
+        .host-remove-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(239, 68, 68, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            display: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .host-remove-btn:hover {
+            background: rgba(220, 38, 38, 1);
+            transform: scale(1.1);
+        }
+
+        .host-item:hover .host-remove-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .results-area {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
+            border-radius: 14px;
+            padding: 25px;
+            margin: 25px 0;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid rgba(100, 179, 244, 0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .results-area::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .results-area::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        .results-area::-webkit-scrollbar-thumb {
+            background: rgba(100, 179, 244, 0.3);
+            border-radius: 4px;
+        }
+
+        .results-area::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 179, 244, 0.5);
+        }
+
+        .log-entry {
+            margin-bottom: 6px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .log-info { 
+            background: rgba(59, 130, 246, 0.1); 
+            border-left-color: #3b82f6;
+        }
+        .log-success { 
+            background: rgba(34, 197, 94, 0.1); 
+            border-left-color: #22c55e;
+        }
+        .log-error { 
+            background: rgba(239, 68, 68, 0.1); 
+            border-left-color: #ef4444;
+        }
+        .log-warning { 
+            background: rgba(245, 158, 11, 0.1); 
+            border-left-color: #f59e0b;
+        }
+
+        /* 主機配置區域 */
+        .host-config-section {
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+            border-radius: 14px;
+            padding: 25px;
+            margin: 25px 0;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .host-input-group {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 12px;
+            margin-bottom: 18px;
+            align-items: center;
+        }
+
+        .host-input, .name-input, .type-select {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(100, 179, 244, 0.2);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #e8eaed;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .type-select option {
+            background: #1e293b;
+            color: #e8eaed;
+            padding: 8px 12px;
+        }
+
+        .type-select option:hover {
+            background: #334155;
+        }
+
+        .type-select option:checked {
+            background: #3b82f6;
+            color: #ffffff;
+        }
+
+        .host-input:focus, .name-input:focus, .type-select:focus {
+            outline: none;
+            border-color: rgba(100, 179, 244, 0.5);
+            box-shadow: 0 0 0 3px rgba(100, 179, 244, 0.1);
+        }
+
+        .host-input::placeholder, .name-input::placeholder {
+            color: rgba(168, 178, 209, 0.5);
+        }
+
+        /* 日誌控制區域 */
+        .log-control-section {
+            background: linear-gradient(135deg, rgba(146, 64, 14, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%);
+            border-radius: 14px;
+            padding: 25px;
+            margin: 25px 0;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .log-filter-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .log-filter-btn {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(100, 179, 244, 0.2);
+            border-radius: 25px;
+            padding: 8px 18px;
+            color: #e8eaed;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .log-filter-btn.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border-color: #f59e0b;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .log-filter-btn:hover {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 100%);
+            border-color: rgba(100, 179, 244, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(100, 179, 244, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-number {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #64b3f4;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #a8b2d1;
+            margin-top: 4px;
+        }
+
+        .uptime-bar {
+            height: 4px;
+            background: rgba(100, 179, 244, 0.2);
+            border-radius: 2px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+
+        .uptime-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .diagnostic-grid {
+                grid-template-columns: 1fr;
+            }
+            .host-grid {
+                grid-template-columns: 1fr;
+            }
+            .btn-grid {
+                grid-template-columns: 1fr;
+            }
+            .host-input-group {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            .header h1 {
+                font-size: 2.2em;
+            }
+        }
+
+        /* 載入動畫 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .container {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        /* 脈衝動畫 */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .testing .status-dot {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* 自動重新整理指示器 */
+        .auto-refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border-radius: 25px;
+            padding: 8px 16px;
+            font-size: 12px;
+            color: #a8b2d1;
+            border: 1px solid rgba(100, 179, 244, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+        }
+
+        .auto-refresh-indicator.active {
+            color: #22c55e;
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span style="filter: none; -webkit-text-fill-color: #64b3f4;">🌐</span> 主機監控工具</h1>
+            <p>即時監控主機狀態、回應時間與可用性 | 支援自訂主機與外部服務監控</p>
+        </div>
+
+        <!-- 自動監控指示器 -->
+        <div class="auto-refresh-indicator" id="autoRefreshIndicator">
+            🔄 自動監控: 關閉
+        </div>
+
+        <!-- 統計資訊 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number" id="totalHosts">0</span>
+                <div class="stat-label">總主機數</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="onlineHosts">0</span>
+                <div class="stat-label">線上主機</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="offlineHosts">0</span>
+                <div class="stat-label">離線主機</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="avgResponseTime">0</span>
+                <div class="stat-label">平均響應(ms)</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="totalUptime">0%</span>
+                <div class="stat-label">總體可用性</div>
+            </div>
+        </div>
+
+        <div class="diagnostic-grid">
+            <div class="panel">
+                <div class="panel-title">🖥️ 主機監控與配置</div>
+                
+                <!-- 主機配置區域 -->
+                <div class="host-config-section">
+                    <h4 style="margin-bottom: 15px; color: #64b3f4;">➕ 新增監控主機</h4>
+                    <div class="host-input-group">
+                        <input type="text" class="host-input" id="customHost" placeholder="主機地址 (例如: https://google.com 或 192.168.1.1:8080)">
+                        <input type="text" class="name-input" id="customName" placeholder="主機名稱">
+                        <select class="type-select" id="hostType">
+                            <option value="website">網站</option>
+                            <option value="api">API 服務</option>
+                            <option value="server">伺服器</option>
+                            <option value="database">資料庫</option>
+                            <option value="service">其他服務</option>
+                        </select>
+                        <button class="btn btn-info" onclick="addCustomHost()" style="width: auto; margin: 0;">新增</button>
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.8; margin-top: 10px;">
+                        💡 支援 HTTP/HTTPS 網站、IP 位址、連接埠檢測等。例如：google.com, 192.168.1.1:3000, https://api.github.com
+                    </div>
+                </div>
+
+                <div class="btn-grid">
+                    <button class="btn" onclick="monitorAllHosts()">🔍 檢測所有主機</button>
+                    <button class="btn btn-warning" onclick="addCommonServices()">📊 新增常見服務</button>
+                    <button class="btn btn-success" onclick="startAutoRefresh()">🔄 自動重新整理</button>
+                    <button class="btn btn-danger" onclick="stopAutoRefresh()">⏹️ 停止自動重新整理</button>
+                </div>
+
+                <!-- 主機控制區域 -->
+                <div style="margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn" onclick="toggleHostGrid()" style="flex: 1;">
+                        <span id="hostGridToggleText">🔽 隱藏主機網格</span>
+                    </button>
+                    <button class="btn" onclick="resetToDefaultHosts()" style="flex: 1;">
+                        🔄 重置為預設主機
+                    </button>
+                    <button class="btn btn-info" onclick="exportHostConfig()" style="flex: 1;">
+                        📤 匯出配置
+                    </button>
+                    <button class="btn btn-info" onclick="importHostConfig()" style="flex: 1;">
+                        📥 匯入配置
+                    </button>
+                </div>
+
+                <div class="host-grid panel-content" id="hostGrid">
+                    <!-- 主機監控結果將在這裡顯示 -->
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">📊 監控分析與報告</div>
+                
+                <!-- 系統分析按鈕區 -->
+                <div class="btn-grid">
+                    <button class="btn btn-success" onclick="generateDetailedReport()">📋 詳細監控報告</button>
+                    <button class="btn" onclick="performLatencyTest()">⚡ 延遲測試</button>
+                    <button class="btn btn-warning" onclick="checkSSLCertificates()">🔒 SSL 憑證檢查</button>
+                    <button class="btn btn-info" onclick="tracerouteAnalysis()">🛣️ 路由追蹤分析</button>
+                </div>
+
+                <!-- 監控歷史統計 -->
+                <div id="monitoringStats" style="background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(15, 23, 42, 0.4) 100%); border-radius: 14px; padding: 20px; margin: 20px 0; border: 1px solid rgba(100, 179, 244, 0.1);">
+                    <div style="text-align: center; opacity: 0.7;">點擊上方按鈕開始分析...</div>
+                </div>
+
+                <!-- 自動監控設定 -->
+                <div style="border-top: 1px solid rgba(100, 179, 244, 0.2); margin: 30px 0; padding-top: 25px;">
+                    <h4 style="margin-bottom: 15px; color: #64b3f4;">⏰ 自動監控設定</h4>
+                    <div style="background: linear-gradient(135deg, rgba(30, 58, 138, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%); border-radius: 14px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2); backdrop-filter: blur(10px);">
+                        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+                            <label style="color: #e8eaed; font-weight: 600;">檢測間隔 (秒):</label>
+                            <input type="number" id="autoMonitorInterval" value="30" min="5" max="3600" 
+                                   style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%); border: 1px solid rgba(100, 179, 244, 0.2); border-radius: 8px; padding: 8px 12px; color: #e8eaed; font-size: 14px; width: 80px; text-align: center;">
+                            <button class="btn btn-success" onclick="startAutoMonitoring()" style="width: auto; margin: 0;">🚀 開始自動監控</button>
+                            <button class="btn btn-danger" onclick="stopAutoMonitoring()" style="width: auto; margin: 0;">⏹️ 停止監控</button>
+                        </div>
+                        <div style="font-size: 12px; opacity: 0.8;">
+                            💡 設定自動監控間隔時間，系統會定期檢測所有主機狀態。建議間隔 30-300 秒。
+                        </div>
+                        <div id="autoMonitorStatus" style="margin-top: 10px; font-size: 13px; color: #a8b2d1;">
+                            ⏸️ 自動監控：已停止
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 日誌控制區域 -->
+                <div class="log-control-section">
+                    <h4 style="margin-bottom: 15px; color: #f59e0b;">📋 日誌管理</h4>
+                    
+                    <!-- 日誌過濾按鈕 -->
+                    <div class="log-filter-group">
+                        <button class="log-filter-btn active" data-filter="all" onclick="filterLogs('all')">全部</button>
+                        <button class="log-filter-btn" data-filter="info" onclick="filterLogs('info')">信息</button>
+                        <button class="log-filter-btn" data-filter="success" onclick="filterLogs('success')">成功</button>
+                        <button class="log-filter-btn" data-filter="warning" onclick="filterLogs('warning')">警告</button>
+                        <button class="log-filter-btn" data-filter="error" onclick="filterLogs('error')">錯誤</button>
+                    </div>
+
+                    <!-- 日誌操作按鈕 -->
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-info" onclick="exportLogs('txt')" style="width: auto;">📄 匯出 TXT</button>
+                        <button class="btn btn-info" onclick="exportLogs('json')" style="width: auto;">📊 匯出 JSON</button>
+                        <button class="btn btn-info" onclick="exportLogs('csv')" style="width: auto;">📈 匯出 CSV</button>
+                        <button class="btn btn-warning" onclick="clearLogs()" style="width: auto;">🗑️ 清空日誌</button>
+                        <button class="btn" onclick="toggleScanResults()" style="width: auto;">
+                            <span id="scanResultsToggleText">🔽 隱藏日誌</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="results-area panel-content" id="scanResults">
+                    <div class="log-entry log-info">[系統] 主機監控工具已準備就緒...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 監控主機配置
+        let hostsToMonitor = [
+            { url: 'https://google.com', name: 'Google', type: 'website', critical: true },
+            { url: 'https://github.com', name: 'GitHub', type: 'website', critical: false },
+            { url: 'https://stackoverflow.com', name: 'Stack Overflow', type: 'website', critical: false },
+            { url: 'https://api.github.com', name: 'GitHub API', type: 'api', critical: false },
+            { url: 'https://httpbin.org/status/200', name: 'HTTPBin 測試', type: 'api', critical: false },
+            { url: 'https://cloudflare.com', name: 'Cloudflare', type: 'service', critical: false }
+        ];
+
+        const defaultHosts = [...hostsToMonitor]; // 保存預設主機配置
+        let monitorResults = [];
+        let logEntries = [];
+        let currentLogFilter = 'all';
+        let autoRefreshInterval = null;
+        let autoMonitorInterval = null;
+        let monitoringHistory = [];
+
+        // 添加自訂主機
+        function addCustomHost() {
+            const hostInput = document.getElementById('customHost');
+            const nameInput = document.getElementById('customName');
+            const typeSelect = document.getElementById('hostType');
+            
+            let hostUrl = hostInput.value.trim();
+            const hostName = nameInput.value.trim();
+            const hostType = typeSelect.value;
+            
+            if (!hostUrl) {
+                addLog('請輸入主機地址', 'error');
+                return;
+            }
+            
+            // 自動添加協定
+            if (!hostUrl.startsWith('http://') && !hostUrl.startsWith('https://')) {
+                // 如果包含連接埠或是 IP，預設使用 http
+                if (hostUrl.includes(':') || /^\d+\.\d+\.\d+\.\d+/.test(hostUrl)) {
+                    hostUrl = 'http://' + hostUrl;
+                } else {
+                    hostUrl = 'https://' + hostUrl;
+                }
+            }
+            
+            const finalName = hostName || new URL(hostUrl).hostname;
+            
+            // 檢查是否已存在
+            if (hostsToMonitor.find(h => h.url === hostUrl)) {
+                addLog(`主機 ${hostUrl} 已在監控列表中`, 'warning');
+                return;
+            }
+            
+            // 新增到列表
+            hostsToMonitor.push({
+                url: hostUrl,
+                name: finalName,
+                type: hostType,
+                critical: false,
+                custom: true
+            });
+            
+            // 清空輸入框
+            hostInput.value = '';
+            nameInput.value = '';
+            
+            // 重新初始化網格
+            initializeHostGrid();
+            updateStats();
+            addLog(`✅ 已新增監控主機: ${finalName} (${hostUrl})`, 'success');
+        }
+
+        // 改進移除主機功能
+        function removeHost(url) {
+            const index = hostsToMonitor.findIndex(h => h.url === url);
+            if (index !== -1) {
+                const hostToRemove = hostsToMonitor[index];
+                
+                // 確認刪除（特別是預設主機）
+                const confirmMessage = hostToRemove.custom 
+                    ? `確定要刪除自訂主機 "${hostToRemove.name}" 嗎？`
+                    : `確定要刪除預設主機 "${hostToRemove.name}" 嗎？\n（可以透過重置功能恢復）`;
+                
+                if (confirm(confirmMessage)) {
+                    const removedHost = hostsToMonitor.splice(index, 1)[0];
+                    
+                    // 同時清理相關數據
+                    if (monitoringHistory[url]) {
+                        delete monitoringHistory[url];
+                    }
+                    monitorResults = monitorResults.filter(r => r.url !== url);
+                    
+                    initializeHostGrid();
+                    updateStats();
+                    
+                    const hostTypeText = removedHost.custom ? '自訂主機' : '預設主機';
+                    addLog(`❌ 已移除${hostTypeText}: ${removedHost.name}`, 'warning');
+                    addLog(`📊 目前共監控 ${hostsToMonitor.length} 個主機`, 'info');
+                }
+            }
+        }
+
+        // 重置為預設主機
+        function resetToDefaultHosts() {
+            hostsToMonitor = [...defaultHosts];
+            initializeHostGrid();
+            updateStats();
+            addLog('🔄 已重置為預設主機配置', 'info');
+        }
+
+        // 初始化主機網格
+        function initializeHostGrid() {
+            const grid = document.getElementById('hostGrid');
+            grid.innerHTML = '';
+            
+            hostsToMonitor.forEach(host => {
+                const hostDiv = document.createElement('div');
+                hostDiv.className = 'host-item';
+                hostDiv.id = `host-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}`;
+                
+                const removeBtn = `<button class="host-remove-btn" onclick="removeHost('${host.url.replace(/'/g, "\\'")}')">×</button>`;
+                
+                hostDiv.innerHTML = `
+                    ${removeBtn}
+                    <div class="host-header">
+                        <div class="host-name">${host.name}</div>
+                        <div class="host-type ${host.custom ? 'custom' : 'default'}">${getTypeDisplayName(host.type)}</div>
+                    </div>
+                    <div class="host-url">${host.url}</div>
+                    <div class="host-status">
+                        <div class="status-dot" id="status-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}"></div>
+                        <span id="status-text-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}">未測試</span>
+                    </div>
+                    <div class="uptime-bar">
+                        <div class="uptime-fill" id="uptime-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}" style="width: 0%"></div>
+                    </div>
+                    <div class="host-details">
+                        <div class="detail-item">
+                            <span class="detail-label">響應時間</span>
+                            <span class="detail-value" id="response-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">狀態碼</span>
+                            <span class="detail-value" id="status-code-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">最後檢查</span>
+                            <span class="detail-value" id="last-check-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">可用性</span>
+                            <span class="detail-value" id="availability-${btoa(host.url).replace(/[^a-zA-Z0-9]/g, '')}">-</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(hostDiv);
+            });
+        }
+
+        // 獲取類型顯示名稱
+        function getTypeDisplayName(type) {
+            const typeMap = {
+                'website': '網站',
+                'api': 'API',
+                'server': '伺服器',
+                'database': '資料庫',
+                'service': '服務'
+            };
+            return typeMap[type] || type;
+        }
+
+        // 更新主機狀態
+        function updateHostStatus(url, status, data = {}) {
+            const hostId = btoa(url).replace(/[^a-zA-Z0-9]/g, '');
+            const hostElement = document.getElementById(`host-${hostId}`);
+            const statusDot = document.getElementById(`status-${hostId}`);
+            const statusText = document.getElementById(`status-text-${hostId}`);
+            const responseTime = document.getElementById(`response-${hostId}`);
+            const statusCode = document.getElementById(`status-code-${hostId}`);
+            const lastCheck = document.getElementById(`last-check-${hostId}`);
+            const availability = document.getElementById(`availability-${hostId}`);
+            const uptimeBar = document.getElementById(`uptime-${hostId}`);
+            
+            if (hostElement && statusDot && statusText) {
+                hostElement.className = `host-item ${status}`;
+                statusDot.className = `status-dot ${status}`;
+                
+                const now = new Date().toLocaleTimeString();
+                lastCheck.textContent = now;
+                
+                switch (status) {
+                    case 'testing':
+                        statusText.textContent = '檢測中...';
+                        responseTime.textContent = '-';
+                        statusCode.textContent = '-';
+                        break;
+                    case 'online':
+                        statusText.textContent = '線上';
+                        responseTime.textContent = data.responseTime ? `${data.responseTime}ms` : '-';
+                        statusCode.textContent = data.statusCode || '-';
+                        break;
+                    case 'offline':
+                        statusText.textContent = '離線';
+                        responseTime.textContent = data.responseTime ? `${data.responseTime}ms` : '超時';
+                        statusCode.textContent = data.statusCode || '無回應';
+                        break;
+                    case 'warning':
+                        statusText.textContent = '異常';
+                        responseTime.textContent = data.responseTime ? `${data.responseTime}ms` : '-';
+                        statusCode.textContent = data.statusCode || '-';
+                        break;
+                }
+                
+                // 更新可用性統計
+                updateHostAvailability(url, status, uptimeBar, availability);
+            }
+        }
+
+        // 更新主機可用性統計
+        function updateHostAvailability(url, status, uptimeBar, availability) {
+            if (!monitoringHistory[url]) {
+                monitoringHistory[url] = [];
+            }
+            
+            monitoringHistory[url].push({
+                timestamp: Date.now(),
+                status: status,
+                isOnline: status === 'online'
+            });
+            
+            // 保持最近100次記錄
+            if (monitoringHistory[url].length > 100) {
+                monitoringHistory[url] = monitoringHistory[url].slice(-100);
+            }
+            
+            // 計算可用性百分比
+            const history = monitoringHistory[url];
+            const onlineCount = history.filter(h => h.isOnline).length;
+            const availabilityPercent = history.length > 0 ? (onlineCount / history.length * 100).toFixed(1) : 0;
+            
+            availability.textContent = `${availabilityPercent}%`;
+            uptimeBar.style.width = `${availabilityPercent}%`;
+        }
+
+        // 測試單個主機
+        async function testHost(hostInfo) {
+            const url = hostInfo.url;
+            updateHostStatus(url, 'testing');
+            addLog(`正在檢測主機 ${hostInfo.name} (${url})`, 'info');
+
+            const startTime = performance.now();
+            
+            try {
+                // 根據不同類型使用不同的測試方法
+                let response;
+                
+                if (hostInfo.type === 'api') {
+                    // API 測試：使用 HEAD 或 GET 請求
+                    response = await fetch(url, {
+                        method: 'GET',
+                        signal: AbortSignal.timeout(10000),
+                        mode: 'cors'
+                    });
+                } else {
+                    // 網站測試：使用 HEAD 請求（更輕量）
+                    response = await fetch(url, {
+                        method: 'HEAD',
+                        signal: AbortSignal.timeout(10000),
+                        mode: 'no-cors'
+                    });
+                }
+
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+                
+                let status, statusText;
+                
+                if (response.ok || response.type === 'opaque') {
+                    status = 'online';
+                    statusText = '線上';
+                    addLog(`✅ ${hostInfo.name} 回應正常 (${responseTime}ms)`, 'success');
+                } else if (response.status >= 400 && response.status < 500) {
+                    status = 'warning';
+                    statusText = `客戶端錯誤 (${response.status})`;
+                    addLog(`⚠️ ${hostInfo.name} 客戶端錯誤 HTTP ${response.status}`, 'warning');
+                } else if (response.status >= 500) {
+                    status = 'warning';
+                    statusText = `伺服器錯誤 (${response.status})`;
+                    addLog(`⚠️ ${hostInfo.name} 伺服器錯誤 HTTP ${response.status}`, 'warning');
+                } else {
+                    status = 'warning';
+                    statusText = `未知狀態 (${response.status})`;
+                    addLog(`⚠️ ${hostInfo.name} 未知狀態 HTTP ${response.status}`, 'warning');
+                }
+
+                updateHostStatus(url, status, {
+                    responseTime,
+                    statusCode: response.status || '200',
+                    statusText
+                });
+
+                monitorResults.push({
+                    url,
+                    name: hostInfo.name,
+                    type: hostInfo.type,
+                    status,
+                    responseTime,
+                    statusCode: response.status,
+                    timestamp: new Date().toISOString()
+                });
+
+                return { url, status, responseTime, statusCode: response.status };
+
+            } catch (error) {
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+                
+                updateHostStatus(url, 'offline', {
+                    responseTime,
+                    statusCode: '連接失敗',
+                    error: error.message
+                });
+
+                addLog(`❌ ${hostInfo.name} 連接失敗: ${error.message}`, 'error');
+                
+                monitorResults.push({
+                    url,
+                    name: hostInfo.name,
+                    type: hostInfo.type,
+                    status: 'offline',
+                    responseTime,
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                });
+
+                return { url, status: 'offline', error: error.message };
+            }
+        }
+
+        // 監控所有主機
+        async function monitorAllHosts() {
+            addLog('開始監控所有主機...', 'info');
+            addLog(`🎯 將監控 ${hostsToMonitor.length} 個主機`, 'info');
+            monitorResults = [];
+            
+            // 並行測試所有主機
+            const promises = hostsToMonitor.map(host => testHost(host));
+
+            try {
+                await Promise.all(promises);
+                addLog('主機監控完成', 'success');
+                updateStats();
+                analyzeMonitorResults();
+            } catch (error) {
+                addLog(`監控過程中發生錯誤: ${error.message}`, 'error');
+            }
+        }
+
+        // 分析監控結果
+        function analyzeMonitorResults() {
+            const onlineHosts = monitorResults.filter(r => r.status === 'online');
+            const offlineHosts = monitorResults.filter(r => r.status === 'offline');
+            const warningHosts = monitorResults.filter(r => r.status === 'warning');
+            
+            addLog(`監控結果: ${onlineHosts.length} 個線上, ${offlineHosts.length} 個離線, ${warningHosts.length} 個異常`, 'info');
+
+            // 識別關鍵服務問題
+            const criticalOffline = offlineHosts.filter(h => 
+                hostsToMonitor.find(host => host.url === h.url && host.critical)
+            );
+
+            if (criticalOffline.length > 0) {
+                addLog(`🚨 關鍵服務離線: ${criticalOffline.map(h => h.name).join(', ')}`, 'error');
+            }
+
+            // 識別高延遲服務
+            const highLatency = onlineHosts.filter(h => h.responseTime > 3000);
+            if (highLatency.length > 0) {
+                addLog(`⚠️ 高延遲服務: ${highLatency.map(h => `${h.name}(${h.responseTime}ms)`).join(', ')}`, 'warning');
+            }
+        }
+
+        // 更新統計資訊
+        function updateStats() {
+            const totalHosts = hostsToMonitor.length;
+            const onlineCount = monitorResults.filter(r => r.status === 'online').length;
+            const offlineCount = monitorResults.filter(r => r.status === 'offline').length;
+            
+            // 計算平均響應時間
+            const onlineResults = monitorResults.filter(r => r.status === 'online' && r.responseTime);
+            const avgResponseTime = onlineResults.length > 0 
+                ? Math.round(onlineResults.reduce((sum, r) => sum + r.responseTime, 0) / onlineResults.length)
+                : 0;
+
+            // 計算總體可用性
+            const totalUptime = totalHosts > 0 ? Math.round((onlineCount / totalHosts) * 100) : 0;
+
+            document.getElementById('totalHosts').textContent = totalHosts;
+            document.getElementById('onlineHosts').textContent = onlineCount;
+            document.getElementById('offlineHosts').textContent = offlineCount;
+            document.getElementById('avgResponseTime').textContent = avgResponseTime;
+            document.getElementById('totalUptime').textContent = `${totalUptime}%`;
+        }
+
+        // 添加常見服務
+        function addCommonServices() {
+            const commonServices = [
+                { url: 'https://www.facebook.com', name: 'Facebook', type: 'website' },
+                { url: 'https://twitter.com', name: 'Twitter/X', type: 'website' },
+                { url: 'https://www.youtube.com', name: 'YouTube', type: 'website' },
+                { url: 'https://api.openai.com', name: 'OpenAI API', type: 'api' },
+                { url: 'https://httpstat.us/200', name: 'HTTP 狀態測試', type: 'api' },
+                { url: 'https://jsonplaceholder.typicode.com', name: 'JSON Placeholder', type: 'api' },
+                { url: 'https://www.cloudflare.com', name: 'Cloudflare CDN', type: 'service' },
+                { url: 'https://8.8.8.8', name: 'Google DNS', type: 'server' }
+            ];
+
+            let addedCount = 0;
+            commonServices.forEach(service => {
+                if (!hostsToMonitor.find(h => h.url === service.url)) {
+                    hostsToMonitor.push({
+                        ...service,
+                        critical: false,
+                        custom: true
+                    });
+                    addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                initializeHostGrid();
+                updateStats();
+                addLog(`✅ 已新增 ${addedCount} 個常見服務`, 'success');
+            } else {
+                addLog('所有常見服務都已在監控列表中', 'info');
+            }
+        }
+
+        // 自動監控功能
+        function startAutoMonitoring() {
+            if (autoMonitorInterval) {
+                clearInterval(autoMonitorInterval);
+            }
+
+            const intervalInput = document.getElementById('autoMonitorInterval');
+            const statusDiv = document.getElementById('autoMonitorStatus');
+            
+            if (!intervalInput || !statusDiv) {
+                addLog('❌ 找不到自動監控設定元素', 'error');
+                return;
+            }
+
+            const interval = parseInt(intervalInput.value);
+            if (isNaN(interval) || interval < 5) {
+                addLog('❌ 無效的間隔時間（最少5秒）', 'error');
+                intervalInput.focus();
+                return;
+            }
+
+            // 立即執行一次監控
+            monitorAllHosts();
+
+            // 設定定時監控
+            autoMonitorInterval = setInterval(() => {
+                addLog(`🔄 自動監控檢測 (每 ${interval} 秒)`, 'info');
+                monitorAllHosts();
+            }, interval * 1000);
+
+            // 更新狀態顯示
+            statusDiv.innerHTML = `🟢 自動監控：已啟動 (每 ${interval} 秒檢測一次)`;
+            statusDiv.style.color = '#22c55e';
+
+            // 更新自動重新整理指示器
+            const indicator = document.getElementById('autoRefreshIndicator');
+            if (indicator) {
+                indicator.textContent = `🔄 自動監控: 每 ${interval} 秒`;
+                indicator.classList.add('active');
+            }
+
+            addLog(`✅ 已啟用自動監控 (每 ${interval} 秒檢測所有主機)`, 'success');
+        }
+
+        function stopAutoMonitoring() {
+            const statusDiv = document.getElementById('autoMonitorStatus');
+            
+            if (autoMonitorInterval) {
+                clearInterval(autoMonitorInterval);
+                autoMonitorInterval = null;
+
+                // 更新狀態顯示
+                if (statusDiv) {
+                    statusDiv.innerHTML = '⏸️ 自動監控：已停止';
+                    statusDiv.style.color = '#a8b2d1';
+                }
+
+                // 更新自動重新整理指示器
+                const indicator = document.getElementById('autoRefreshIndicator');
+                if (indicator) {
+                    indicator.textContent = '🔄 自動監控: 關閉';
+                    indicator.classList.remove('active');
+                }
+
+                addLog('⏹️ 已停止自動監控', 'warning');
+            } else {
+                addLog('⚠️ 自動監控未啟動', 'warning');
+            }
+        }
+
+        // 記錄日誌
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp: timestamp,
+                message: message,
+                type: type,
+                fullTimestamp: new Date().toISOString()
+            };
+            
+            logEntries.push(logEntry);
+            
+            // 只顯示符合當前過濾器的日誌
+            if (currentLogFilter === 'all' || currentLogFilter === type) {
+                displayLogEntry(logEntry);
+            }
+        }
+
+        // 顯示日誌條目
+        function displayLogEntry(logEntry) {
+            const results = document.getElementById('scanResults');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log-entry log-${logEntry.type}`;
+            logDiv.textContent = `[${logEntry.timestamp}] ${logEntry.message}`;
+            results.appendChild(logDiv);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        // 過濾日誌
+        function filterLogs(filterType) {
+            currentLogFilter = filterType;
+            
+            // 更新按鈕狀態
+            document.querySelectorAll('.log-filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-filter="${filterType}"]`).classList.add('active');
+            
+            // 重新顯示日誌
+            const results = document.getElementById('scanResults');
+            results.innerHTML = '';
+            
+            logEntries.forEach(entry => {
+                if (filterType === 'all' || filterType === entry.type) {
+                    displayLogEntry(entry);
+                }
+            });
+            
+            addLog(`🔍 已過濾顯示: ${filterType === 'all' ? '全部' : filterType} 類型日誌`, 'info');
+        }
+
+        // 清空日誌
+        function clearLogs() {
+            if (confirm('確定要清空所有日誌嗎？')) {
+                logEntries = [];
+                document.getElementById('scanResults').innerHTML = '';
+                addLog('🗑️ 日誌已清空', 'info');
+            }
+        }
+
+        // 匯出日誌
+        function exportLogs(format) {
+            if (logEntries.length === 0) {
+                addLog('沒有日誌可以匯出', 'warning');
+                return;
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            let content, filename, mimeType;
+
+            switch (format) {
+                case 'txt':
+                    content = logEntries.map(entry => 
+                        `[${entry.timestamp}] [${entry.type.toUpperCase()}] ${entry.message}`
+                    ).join('\n');
+                    filename = `主機監控日誌-${timestamp}.txt`;
+                    mimeType = 'text/plain';
+                    break;
+
+                case 'json':
+                    content = JSON.stringify({
+                        exportTime: new Date().toISOString(),
+                        totalEntries: logEntries.length,
+                        monitorResults: monitorResults,
+                        logs: logEntries
+                    }, null, 2);
+                    filename = `主機監控日誌-${timestamp}.json`;
+                    mimeType = 'application/json';
+                    break;
+
+                case 'csv':
+                    const csvHeader = 'Time,Type,Message,FullTimestamp\n';
+                    const csvContent = logEntries.map(entry => 
+                        `"${entry.timestamp}","${entry.type}","${entry.message.replace(/"/g, '""')}","${entry.fullTimestamp}"`
+                    ).join('\n');
+                    content = csvHeader + csvContent;
+                    filename = `主機監控日誌-${timestamp}.csv`;
+                    mimeType = 'text/csv';
+                    break;
+
+                default:
+                    addLog('不支援的匯出格式', 'error');
+                    return;
+            }
+
+            // 創建下載連結
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            addLog(`📤 日誌已匯出為 ${format.toUpperCase()} 格式 (${logEntries.length} 條記錄)`, 'success');
+        }
+
+        // 摺疊主機網格
+        function toggleHostGrid() {
+            const hostGrid = document.getElementById('hostGrid');
+            const toggleText = document.getElementById('hostGridToggleText');
+            
+            if (hostGrid.classList.contains('collapsed')) {
+                hostGrid.classList.remove('collapsed');
+                toggleText.textContent = '🔽 隱藏主機網格';
+                addLog('展開主機網格', 'info');
+            } else {
+                hostGrid.classList.add('collapsed');
+                toggleText.textContent = '▶️ 顯示主機網格';
+                addLog('隱藏主機網格', 'info');
+            }
+        }
+
+        // 摺疊掃描結果
+        function toggleScanResults() {
+            const scanResults = document.getElementById('scanResults');
+            const toggleText = document.getElementById('scanResultsToggleText');
+            
+            if (scanResults.classList.contains('collapsed')) {
+                scanResults.classList.remove('collapsed');
+                toggleText.textContent = '🔽 隱藏日誌';
+                addLog('展開訊息日誌', 'info');
+            } else {
+                scanResults.classList.add('collapsed');
+                toggleText.textContent = '▶️ 顯示日誌';
+                addLog('隱藏訊息日誌', 'info');
+            }
+        }
+
+        // 匯出主機配置
+        function exportHostConfig() {
+            const config = {
+                exportTime: new Date().toISOString(),
+                hosts: hostsToMonitor,
+                customHostsCount: hostsToMonitor.filter(h => h.custom).length,
+                monitoringHistory: monitoringHistory
+            };
+            
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `主機監控配置-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            addLog('📤 主機配置已匯出', 'success');
+        }
+
+        // 匯入主機配置
+        function importHostConfig() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const config = JSON.parse(e.target.result);
+                        if (config.hosts && Array.isArray(config.hosts)) {
+                            hostsToMonitor = config.hosts;
+                            if (config.monitoringHistory) {
+                                monitoringHistory = config.monitoringHistory;
+                            }
+                            initializeHostGrid();
+                            updateStats();
+                            addLog(`📥 已匯入 ${config.hosts.length} 個主機配置`, 'success');
+                        } else {
+                            addLog('❌ 無效的配置文件格式', 'error');
+                        }
+                    } catch (error) {
+                        addLog('❌ 配置文件解析失敗', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // 生成詳細監控報告
+        function generateDetailedReport() {
+            const timestamp = new Date().toLocaleString();
+            
+            // 統計信息
+            const stats = {
+                totalHosts: hostsToMonitor.length,
+                customHosts: hostsToMonitor.filter(h => h.custom).length,
+                onlineHosts: monitorResults.filter(r => r.status === 'online').length,
+                offlineHosts: monitorResults.filter(r => r.status === 'offline').length,
+                warningHosts: monitorResults.filter(r => r.status === 'warning').length,
+                totalLogs: logEntries.length,
+                errorLogs: logEntries.filter(l => l.type === 'error').length,
+                warningLogs: logEntries.filter(l => l.type === 'warning').length
+            };
+
+            // 響應時間統計
+            const onlineResults = monitorResults.filter(r => r.status === 'online' && r.responseTime);
+            const responseStats = {
+                avgResponseTime: onlineResults.length > 0 ? Math.round(onlineResults.reduce((sum, r) => sum + r.responseTime, 0) / onlineResults.length) : 0,
+                minResponseTime: onlineResults.length > 0 ? Math.min(...onlineResults.map(r => r.responseTime)) : 0,
+                maxResponseTime: onlineResults.length > 0 ? Math.max(...onlineResults.map(r => r.responseTime)) : 0
+            };
+            
+            const report = `# 主機監控詳細報告
+生成時間: ${timestamp}
+
+## 📊 監控統計摘要
+- 總監控主機數: ${stats.totalHosts}
+- 自訂主機數: ${stats.customHosts}
+- 線上主機: ${stats.onlineHosts}
+- 離線主機: ${stats.offlineHosts}
+- 異常主機: ${stats.warningHosts}
+- 總體可用性: ${stats.totalHosts > 0 ? ((stats.onlineHosts / stats.totalHosts) * 100).toFixed(1) : 0}%
+- 總日誌條數: ${stats.totalLogs}
+- 錯誤日誌: ${stats.errorLogs}
+- 警告日誌: ${stats.warningLogs}
+
+## ⚡ 響應時間分析
+- 平均響應時間: ${responseStats.avgResponseTime}ms
+- 最快響應時間: ${responseStats.minResponseTime}ms
+- 最慢響應時間: ${responseStats.maxResponseTime}ms
+
+## 🖥️ 主機配置詳細
+${hostsToMonitor.map(host => `
+主機名稱: ${host.name}
+地址: ${host.url}
+類型: ${getTypeDisplayName(host.type)}
+自訂: ${host.custom ? '是' : '否'}
+關鍵服務: ${host.critical ? '是' : '否'}
+`).join('\n')}
+
+## 📋 監控結果詳細
+${monitorResults.map(result => `
+主機: ${result.name} (${result.url})
+狀態: ${result.status}
+響應時間: ${result.responseTime || '-'}ms
+狀態碼: ${result.statusCode || '-'}
+檢測時間: ${result.timestamp}
+${result.error ? `錯誤: ${result.error}` : ''}
+`).join('\n')}
+
+## 🔍 可用性歷史
+${Object.entries(monitoringHistory).map(([url, history]) => {
+    const host = hostsToMonitor.find(h => h.url === url);
+    const onlineCount = history.filter(h => h.isOnline).length;
+    const availabilityPercent = history.length > 0 ? (onlineCount / history.length * 100).toFixed(1) : 0;
+    return `${host ? host.name : url}: ${availabilityPercent}% (${onlineCount}/${history.length} 次檢測成功)`;
+}).join('\n')}
+
+## 📝 完整日誌記錄
+${logEntries.map(entry => `[${entry.timestamp}] [${entry.type.toUpperCase()}] ${entry.message}`).join('\n')}
+
+## 💡 建議與警告
+${stats.offlineHosts > 0 ? `⚠️ 發現 ${stats.offlineHosts} 個離線主機，請檢查網路連接或服務狀態` : '✅ 所有監控主機運行正常'}
+${responseStats.avgResponseTime > 3000 ? `⚠️ 平均響應時間較高 (${responseStats.avgResponseTime}ms)，建議檢查網路或伺服器性能` : ''}
+${stats.errorLogs > stats.totalLogs * 0.2 ? `⚠️ 錯誤日誌比例較高 (${((stats.errorLogs / stats.totalLogs) * 100).toFixed(1)}%)，請注意監控異常` : ''}
+
+## 🔗 系統資訊
+- 報告生成時間: ${timestamp}
+- 監控工具版本: v2.0
+- 瀏覽器: ${navigator.userAgent}
+- 時區: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
+            `;
+
+            // 創建下載連結
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `主機監控詳細報告-${timestamp.replace(/[/:]/g, '-')}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            addLog(`📋 詳細監控報告已生成並下載 (${stats.totalLogs} 條日誌)`, 'success');
+        }
+
+        // 延遲測試
+        async function performLatencyTest() {
+            addLog('🚀 開始延遲測試...', 'info');
+            
+            const statsDiv = document.getElementById('monitoringStats');
+            statsDiv.innerHTML = '<div style="text-align: center; opacity: 0.7;">正在執行延遲測試...</div>';
+            
+            const latencyResults = [];
+            
+            for (const host of hostsToMonitor) {
+                addLog(`測試 ${host.name} 延遲...`, 'info');
+                
+                const attempts = 5;
+                const pingTimes = [];
+                
+                for (let i = 0; i < attempts; i++) {
+                    try {
+                        const startTime = performance.now();
+                        const response = await fetch(host.url, {
+                            method: 'HEAD',
+                            signal: AbortSignal.timeout(5000),
+                            mode: 'no-cors'
+                        });
+                        const endTime = performance.now();
+                        pingTimes.push(Math.round(endTime - startTime));
+                    } catch (error) {
+                        pingTimes.push(null);
+                    }
+                }
+                
+                const validPings = pingTimes.filter(t => t !== null);
+                const avgLatency = validPings.length > 0 ? Math.round(validPings.reduce((a, b) => a + b, 0) / validPings.length) : null;
+                const minLatency = validPings.length > 0 ? Math.min(...validPings) : null;
+                const maxLatency = validPings.length > 0 ? Math.max(...validPings) : null;
+                const packetLoss = ((attempts - validPings.length) / attempts * 100).toFixed(1);
+                
+                latencyResults.push({
+                    name: host.name,
+                    url: host.url,
+                    avgLatency,
+                    minLatency,
+                    maxLatency,
+                    packetLoss,
+                    attempts,
+                    successful: validPings.length
+                });
+                
+                if (avgLatency) {
+                    addLog(`${host.name}: 平均 ${avgLatency}ms, 封包遺失 ${packetLoss}%`, avgLatency > 3000 ? 'warning' : 'success');
+                } else {
+                    addLog(`${host.name}: 無法連接`, 'error');
+                }
+            }
+            
+            // 顯示延遲測試結果
+            let html = `
+                <div style="margin-bottom: 15px;">
+                    <strong>⚡ 延遲測試結果 (5次測試平均值)</strong>
+                </div>
+            `;
+            
+            latencyResults.forEach(result => {
+                const statusColor = result.avgLatency === null ? '#ef4444' : 
+                                  result.avgLatency > 3000 ? '#f59e0b' : '#22c55e';
+                
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin: 5px 0; background: rgba(30, 41, 59, 0.6); border-radius: 8px; border-left: 3px solid ${statusColor};">
+                        <div>
+                            <strong>${result.name}</strong><br>
+                            <small style="opacity: 0.8;">${result.url}</small>
+                        </div>
+                        <div style="text-align: right;">
+                            ${result.avgLatency !== null ? `
+                                <div>平均: <strong>${result.avgLatency}ms</strong></div>
+                                <div style="font-size: 0.8em; opacity: 0.8;">範圍: ${result.minLatency}-${result.maxLatency}ms</div>
+                                <div style="font-size: 0.8em; opacity: 0.8;">封包遺失: ${result.packetLoss}%</div>
+                            ` : `
+                                <div style="color: #ef4444;"><strong>無法連接</strong></div>
+                                <div style="font-size: 0.8em; opacity: 0.8;">0/${result.attempts} 成功</div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            statsDiv.innerHTML = html;
+            addLog('⚡ 延遲測試完成', 'success');
+        }
+
+        // SSL 憑證檢查
+        async function checkSSLCertificates() {
+            addLog('🔒 開始 SSL 憑證檢查...', 'info');
+            
+            const statsDiv = document.getElementById('monitoringStats');
+            statsDiv.innerHTML = '<div style="text-align: center; opacity: 0.7;">正在檢查 SSL 憑證...</div>';
+            
+            const sslResults = [];
+            const httpsHosts = hostsToMonitor.filter(host => host.url.startsWith('https://'));
+            
+            if (httpsHosts.length === 0) {
+                addLog('⚠️ 沒有 HTTPS 主機需要檢查', 'warning');
+                statsDiv.innerHTML = '<div style="text-align: center; opacity: 0.7;">沒有 HTTPS 主機需要檢查 SSL 憑證</div>';
+                return;
+            }
+            
+            for (const host of httpsHosts) {
+                try {
+                    addLog(`檢查 ${host.name} SSL 憑證...`, 'info');
+                    
+                    // 注意：在瀏覽器環境中，我們無法直接獲取 SSL 憑證詳細信息
+                    // 這裡模擬 SSL 檢查邏輯
+                    const response = await fetch(host.url, {
+                        method: 'HEAD',
+                        signal: AbortSignal.timeout(10000)
+                    });
+                    
+                    const sslInfo = {
+                        name: host.name,
+                        url: host.url,
+                        isSecure: host.url.startsWith('https://'),
+                        responseOk: response.ok,
+                        status: response.ok ? 'valid' : 'error',
+                        message: response.ok ? 'SSL 連接正常' : `HTTP ${response.status} 錯誤`
+                    };
+                    
+                    sslResults.push(sslInfo);
+                    addLog(`${host.name}: ${sslInfo.message}`, response.ok ? 'success' : 'error');
+                    
+                } catch (error) {
+                    const sslInfo = {
+                        name: host.name,
+                        url: host.url,
+                        isSecure: false,
+                        responseOk: false,
+                        status: 'error',
+                        message: `SSL 連接失敗: ${error.message}`
+                    };
+                    
+                    sslResults.push(sslInfo);
+                    addLog(`${host.name}: ${sslInfo.message}`, 'error');
+                }
+            }
+            
+            // 顯示 SSL 檢查結果
+            let html = `
+                <div style="margin-bottom: 15px;">
+                    <strong>🔒 SSL 憑證檢查結果</strong>
+                </div>
+                <div style="margin-bottom: 10px; font-size: 0.9em; opacity: 0.8;">
+                    注意：瀏覽器環境限制，僅能檢查基本 SSL 連接狀態
+                </div>
+            `;
+            
+            sslResults.forEach(result => {
+                const statusColor = result.status === 'valid' ? '#22c55e' : '#ef4444';
+                const statusIcon = result.status === 'valid' ? '✅' : '❌';
+                
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin: 5px 0; background: rgba(30, 41, 59, 0.6); border-radius: 8px; border-left: 3px solid ${statusColor};">
+                        <div>
+                            <strong>${result.name}</strong><br>
+                            <small style="opacity: 0.8;">${result.url}</small>
+                        </div>
+                        <div style="text-align: right;">
+                            <div>${statusIcon} <strong>${result.message}</strong></div>
+                            <div style="font-size: 0.8em; opacity: 0.8;">
+                                ${result.isSecure ? 'HTTPS 協定' : 'HTTP 協定'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            statsDiv.innerHTML = html;
+            addLog('🔒 SSL 憑證檢查完成', 'success');
+        }
+
+        // 路由追蹤分析（模擬）
+        function tracerouteAnalysis() {
+            addLog('🛣️ 開始路由追蹤分析...', 'info');
+            
+            const statsDiv = document.getElementById('monitoringStats');
+            statsDiv.innerHTML = `
+                <div style="margin-bottom: 15px;">
+                    <strong>🛣️ 路由追蹤分析</strong>
+                </div>
+                <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 15px; margin: 10px 0;">
+                    <div style="color: #f59e0b; margin-bottom: 10px;">⚠️ 瀏覽器環境限制</div>
+                    <div style="font-size: 0.9em;">
+                        瀏覽器環境無法執行真實的路由追蹤。建議在終端機執行以下命令：
+                    </div>
+                </div>
+                
+                <div style="background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 15px; margin: 10px 0; font-family: monospace; font-size: 0.85em;">
+                    <div style="margin-bottom: 10px; color: #64b3f4;"><strong>Windows:</strong></div>
+                    <div>tracert google.com</div>
+                    <div>tracert 8.8.8.8</div>
+                    <br>
+                    <div style="margin-bottom: 10px; color: #64b3f4;"><strong>macOS/Linux:</strong></div>
+                    <div>traceroute google.com</div>
+                    <div>traceroute 8.8.8.8</div>
+                    <div>mtr google.com (需安裝 mtr)</div>
+                </div>
+                
+                <div style="font-size: 0.85em; margin-top: 15px;">
+                    <strong>路由追蹤可以幫助診斷：</strong><br>
+                    • 網路延遲來源<br>
+                    • 封包遺失位置<br>
+                    • 網路路徑問題<br>
+                    • ISP 路由問題
+                </div>
+            `;
+            
+            addLog('🛣️ 路由追蹤分析說明已顯示', 'info');
+        }
+
+        // Ping 測試所有主機
+        async function pingTestAll() {
+            addLog('🏓 開始 Ping 測試所有主機...', 'info');
+            
+            for (const host of hostsToMonitor) {
+                try {
+                    const startTime = performance.now();
+                    const response = await fetch(host.url, {
+                        method: 'HEAD',
+                        signal: AbortSignal.timeout(5000),
+                        mode: 'no-cors'
+                    });
+                    const endTime = performance.now();
+                    const pingTime = Math.round(endTime - startTime);
+                    
+                    addLog(`🏓 ${host.name}: ${pingTime}ms`, pingTime > 1000 ? 'warning' : 'success');
+                } catch (error) {
+                    addLog(`🏓 ${host.name}: 無法 Ping 通`, 'error');
+                }
+            }
+            
+            addLog('🏓 Ping 測試完成', 'info');
+        }
+
+        // 連接埠掃描（簡化版）
+        async function portScanAll() {
+            addLog('🔍 開始連接埠掃描...', 'info');
+            
+            const commonPorts = [80, 443, 22, 21, 25, 53, 110, 143, 993, 995];
+            
+            for (const host of hostsToMonitor) {
+                if (host.url.startsWith('http')) {
+                    try {
+                        const url = new URL(host.url);
+                        const hostname = url.hostname;
+                        
+                        addLog(`掃描 ${host.name} (${hostname}) 的常見連接埠...`, 'info');
+                        
+                        // 注意：瀏覽器環境中無法真正進行連接埠掃描
+                        // 這裡只是示範概念
+                        addLog(`⚠️ 瀏覽器環境無法進行真實連接埠掃描`, 'warning');
+                        addLog(`建議使用 nmap 或其他工具: nmap ${hostname}`, 'info');
+                        
+                    } catch (error) {
+                        addLog(`${host.name}: URL 解析失敗`, 'error');
+                    }
+                }
+            }
+            
+            addLog('🔍 連接埠掃描說明完成', 'info');
+        }
+
+        // DNS 查詢所有主機
+        async function dnsLookupAll() {
+            addLog('🌐 開始 DNS 查詢...', 'info');
+            
+            for (const host of hostsToMonitor) {
+                if (host.url.startsWith('http')) {
+                    try {
+                        const url = new URL(host.url);
+                        const hostname = url.hostname;
+                        
+                        // 簡單的 DNS 測試 - 嘗試解析域名
+                        const startTime = performance.now();
+                        const response = await fetch(`https://dns.google/resolve?name=${hostname}&type=A`, {
+                            signal: AbortSignal.timeout(5000)
+                        });
+                        const endTime = performance.now();
+                        const queryTime = Math.round(endTime - startTime);
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.Answer && data.Answer.length > 0) {
+                                const ips = data.Answer.filter(a => a.type === 1).map(a => a.data);
+                                addLog(`🌐 ${hostname}: ${ips.join(', ')} (${queryTime}ms)`, 'success');
+                            } else {
+                                addLog(`🌐 ${hostname}: DNS 查詢無結果`, 'warning');
+                            }
+                        } else {
+                            addLog(`🌐 ${hostname}: DNS 查詢失敗`, 'error');
+                        }
+                        
+                    } catch (error) {
+                        addLog(`🌐 ${host.name}: DNS 查詢錯誤 - ${error.message}`, 'error');
+                    }
+                }
+            }
+            
+            addLog('🌐 DNS 查詢完成', 'info');
+        }
+
+        // 健康檢查所有主機
+        async function healthCheckAll() {
+            addLog('❤️ 開始健康檢查...', 'info');
+            
+            const healthResults = [];
+            
+            for (const host of hostsToMonitor) {
+                const healthData = {
+                    name: host.name,
+                    url: host.url,
+                    connectivity: false,
+                    responseTime: null,
+                    statusCode: null,
+                    contentLength: null,
+                    lastModified: null,
+                    server: null
+                };
+                
+                try {
+                    const startTime = performance.now();
+                    const response = await fetch(host.url, {
+                        method: 'HEAD',
+                        signal: AbortSignal.timeout(10000)
+                    });
+                    const endTime = performance.now();
+                    
+                    healthData.connectivity = true;
+                    healthData.responseTime = Math.round(endTime - startTime);
+                    healthData.statusCode = response.status;
+                    healthData.contentLength = response.headers.get('content-length');
+                    healthData.lastModified = response.headers.get('last-modified');
+                    healthData.server = response.headers.get('server');
+                    
+                    const status = response.ok ? 'healthy' : 'warning';
+                    addLog(`❤️ ${host.name}: ${status === 'healthy' ? '健康' : '異常'} (${healthData.responseTime}ms, HTTP ${healthData.statusCode})`, status === 'healthy' ? 'success' : 'warning');
+                    
+                } catch (error) {
+                    addLog(`❤️ ${host.name}: 健康檢查失敗 - ${error.message}`, 'error');
+                }
+                
+                healthResults.push(healthData);
+            }
+            
+            addLog('❤️ 健康檢查完成', 'info');
+        }
+
+        // 自動保存功能
+        function autoSave() {
+            const saveData = {
+                hostsToMonitor,
+                logEntries: logEntries.slice(-50), // 只保存最近50條日誌
+                monitoringHistory,
+                lastSaved: new Date().toISOString()
+            };
+            
+            try {
+                // 注意：這裡不能使用 localStorage，所以我們只在內存中保存
+                window.hostMonitorSave = saveData;
+                addLog('💾 配置已自動保存到內存', 'info');
+            } catch (error) {
+                addLog('⚠️ 自動保存失敗', 'warning');
+            }
+        }
+
+        // 自動加載功能
+        function autoLoad() {
+            try {
+                const saveData = window.hostMonitorSave;
+                if (saveData && saveData.hostsToMonitor) {
+                    hostsToMonitor = saveData.hostsToMonitor;
+                    if (saveData.logEntries) {
+                        logEntries = saveData.logEntries;
+                    }
+                    if (saveData.monitoringHistory) {
+                        monitoringHistory = saveData.monitoringHistory;
+                    }
+                    addLog('📂 已加載之前的配置', 'success');
+                    return true;
+                }
+            } catch (error) {
+                addLog('⚠️ 配置加載失敗', 'warning');
+            }
+            return false;
+        }
+
+        // 快速診斷功能
+        async function runQuickDiagnosis() {
+            addLog('🚀 開始快速診斷...', 'info');
+            await monitorAllHosts();
+            addLog('🚀 快速診斷完成', 'success');
+        }
+
+        // 批量添加主機功能
+        function addBatchHosts() {
+            const hostsInput = prompt('請輸入要批量添加的主機，用換行分隔\n格式: URL|名稱|類型\n例如:\nhttps://example.com|範例網站|website\nhttp://192.168.1.1:8080|本地服務|server');
+            
+            if (!hostsInput) return;
+            
+            const hostEntries = hostsInput.split('\n');
+            let addedCount = 0;
+            
+            hostEntries.forEach(entry => {
+                const parts = entry.trim().split('|');
+                let hostUrl = parts[0] ? parts[0].trim() : '';
+                let hostName = parts[1] ? parts[1].trim() : '';
+                let hostType = parts[2] ? parts[2].trim() : 'website';
+                
+                if (!hostUrl) return;
+                
+                // 自動添加協定
+                if (!hostUrl.startsWith('http://') && !hostUrl.startsWith('https://')) {
+                    if (hostUrl.includes(':') || /^\d+\.\d+\.\d+\.\d+/.test(hostUrl)) {
+                        hostUrl = 'http://' + hostUrl;
+                    } else {
+                        hostUrl = 'https://' + hostUrl;
+                    }
+                }
+                
+                try {
+                    const finalName = hostName || new URL(hostUrl).hostname;
+                    
+                    if (!hostsToMonitor.find(h => h.url === hostUrl)) {
+                        hostsToMonitor.push({
+                            url: hostUrl,
+                            name: finalName,
+                            type: hostType,
+                            critical: false,
+                            custom: true
+                        });
+                        addedCount++;
+                    }
+                } catch (error) {
+                    addLog(`❌ 無效的 URL: ${hostUrl}`, 'error');
+                }
+            });
+            
+            if (addedCount > 0) {
+                initializeHostGrid();
+                updateStats();
+                addLog(`✅ 批量添加了 ${addedCount} 個主機`, 'success');
+            } else {
+                addLog('❌ 沒有有效的主機被添加', 'error');
+            }
+        }
+
+        // 頁面載入初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 嘗試加載之前的配置
+            const loaded = autoLoad();
+            
+            initializeHostGrid();
+            updateStats();
+            addLog('🌐 主機監控工具已準備就緒', 'success');
+            addLog('🚀 功能: 自訂主機、自動重新整理、SSL檢查、延遲測試', 'info');
+            
+            if (loaded) {
+                addLog('📂 已恢復之前的配置和部分日誌', 'info');
+            }
+            
+            addLog('💡 提示: 使用 Ctrl+Enter 快速監控，Ctrl+E 匯出日誌', 'info');
+            addLog('點擊"檢測所有主機"開始監控', 'info');
+            
+            // 添加進階控制界面
+            setTimeout(addAdvancedControls, 500);
+            
+            // 設置自動保存（每30秒）
+            setInterval(autoSave, 30000);
+            
+            // 自動開始快速診斷
+            setTimeout(runQuickDiagnosis, 2000);
+        });
+
+        // 添加進階控制功能
+        function addAdvancedControls() {
+            const panel = document.querySelector('.panel');
+            const advancedSection = document.createElement('div');
+            advancedSection.style.cssText = `
+                border-top: 1px solid rgba(100, 179, 244, 0.2);
+                margin-top: 30px;
+                padding-top: 25px;
+            `;
+            advancedSection.innerHTML = `
+                <h4 style="margin-bottom: 15px; color: #64b3f4;">🚀 進階功能</h4>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-info" onclick="addBatchHosts()" style="width: auto;">📋 批量添加主機</button>
+                    <button class="btn btn-info" onclick="exportHostConfig()" style="width: auto;">📤 匯出配置</button>
+                    <button class="btn btn-info" onclick="importHostConfig()" style="width: auto;">📥 匯入配置</button>
+                    <button class="btn btn-warning" onclick="generateDetailedReport()" style="width: auto;">📄 生成報告</button>
+                </div>
+                <div style="margin-top: 10px; font-size: 12px; opacity: 0.8;">
+                    💡 快捷鍵: Ctrl+Enter (監控) | Ctrl+E (匯出日誌) | Ctrl+Shift+C (清空日誌)
+                </div>
+            `;
+            
+            // 插入到日誌控制區域前面
+            const logControlSection = document.querySelector('.log-control-section');
+            logControlSection.parentNode.insertBefore(advancedSection, logControlSection);
+        }
+
+        // 頁面卸載時保存並停止自動監控
+        window.addEventListener('beforeunload', function() {
+            autoSave();
+            if (autoMonitorInterval) {
+                clearInterval(autoMonitorInterval);
+            }
+        });
+
+        // 鍵盤快捷鍵支援
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Enter 快速監控
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                monitorAllHosts();
+                addLog('🔥 使用快捷鍵 Ctrl+Enter 開始監控', 'info');
+            }
+            
+            // Ctrl+E 匯出日誌
+            if (e.ctrlKey && e.key === 'e') {
+                e.preventDefault();
+                exportLogs('txt');
+                addLog('🔥 使用快捷鍵 Ctrl+E 匯出日誌', 'info');
+            }
+            
+            // Ctrl+Shift+C 清空日誌
+            if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+                e.preventDefault();
+                clearLogs();
+            }
+            
+            // Enter 鍵在主機輸入框中添加主機
+            if (e.key === 'Enter' && (e.target.id === 'customHost' || e.target.id === 'customName')) {
+                e.preventDefault();
+                addCustomHost();
+            }
+        });
+
+        // 修復新增主機功能
+        function addCustomHost() {
+            const hostInput = document.getElementById('customHost');
+            const nameInput = document.getElementById('customName');
+            const typeSelect = document.getElementById('hostType');
+            
+            if (!hostInput || !nameInput || !typeSelect) {
+                addLog('❌ 找不到輸入元素，請重新載入頁面', 'error');
+                return;
+            }
+            
+            let hostUrl = hostInput.value.trim();
+            const hostName = nameInput.value.trim();
+            const hostType = typeSelect.value;
+            
+            if (!hostUrl) {
+                addLog('❌ 請輸入主機地址', 'error');
+                hostInput.focus();
+                return;
+            }
+            
+            // 驗證和標準化 URL
+            try {
+                // 自動添加協定
+                if (!hostUrl.startsWith('http://') && !hostUrl.startsWith('https://')) {
+                    // 如果包含連接埠或是 IP，預設使用 http
+                    if (hostUrl.includes(':') && !hostUrl.includes('://')) {
+                        hostUrl = 'http://' + hostUrl;
+                    } else if (/^\d+\.\d+\.\d+\.\d+/.test(hostUrl)) {
+                        hostUrl = 'http://' + hostUrl;
+                    } else {
+                        hostUrl = 'https://' + hostUrl;
+                    }
+                }
+                
+                // 驗證 URL 有效性
+                const urlObj = new URL(hostUrl);
+                const finalName = hostName || urlObj.hostname || urlObj.host;
+                
+                // 檢查是否已存在
+                if (hostsToMonitor.find(h => h.url === hostUrl)) {
+                    addLog(`⚠️ 主機 ${hostUrl} 已在監控列表中`, 'warning');
+                    return;
+                }
+                
+                // 新增到列表
+                hostsToMonitor.push({
+                    url: hostUrl,
+                    name: finalName,
+                    type: hostType,
+                    critical: false,
+                    custom: true
+                });
+                
+                // 清空輸入框
+                hostInput.value = '';
+                nameInput.value = '';
+                typeSelect.selectedIndex = 0;
+                
+                // 重新初始化網格和更新統計
+                initializeHostGrid();
+                updateStats();
+                
+                addLog(`✅ 已新增監控主機: ${finalName} (${hostUrl})`, 'success');
+                addLog(`📊 目前共監控 ${hostsToMonitor.length} 個主機`, 'info');
+                
+                // 自動測試新添加的主機
+                setTimeout(() => {
+                    testHost({ url: hostUrl, name: finalName, type: hostType });
+                }, 500);
+                
+            } catch (error) {
+                addLog(`❌ 無效的主機地址: ${hostUrl} - ${error.message}`, 'error');
+                hostInput.focus();
+            }
+        }
+
+        // 改進移除主機功能
+        function removeCustomHost(url) {
+            const index = hostsToMonitor.findIndex(h => h.url === url);
+            if (index !== -1) {
+                const removedHost = hostsToMonitor.splice(index, 1)[0];
+                
+                // 同時清理歷史記錄
+                if (monitoringHistory[url]) {
+                    delete monitoringHistory[url];
+                }
+                
+                // 從監控結果中移除
+                monitorResults = monitorResults.filter(r => r.url !== url);
+                
+                initializeHostGrid();
+                updateStats();
+                addLog(`❌ 已移除監控主機: ${removedHost.name}`, 'warning');
+                addLog(`📊 目前共監控 ${hostsToMonitor.length} 個主機`, 'info');
+            }
+        }
+
+        // 改進統計更新功能
+        function updateStats() {
+            const totalHosts = hostsToMonitor.length;
+            const onlineCount = monitorResults.filter(r => r.status === 'online').length;
+            const offlineCount = monitorResults.filter(r => r.status === 'offline').length;
+            const warningCount = monitorResults.filter(r => r.status === 'warning').length;
+            
+            // 計算平均響應時間
+            const onlineResults = monitorResults.filter(r => r.status === 'online' && r.responseTime);
+            const avgResponseTime = onlineResults.length > 0 
+                ? Math.round(onlineResults.reduce((sum, r) => sum + r.responseTime, 0) / onlineResults.length)
+                : 0;
+
+            // 計算總體可用性
+            const totalUptime = totalHosts > 0 ? Math.round((onlineCount / totalHosts) * 100) : 0;
+
+            // 更新 DOM 元素
+            const elements = {
+                totalHosts: document.getElementById('totalHosts'),
+                onlineHosts: document.getElementById('onlineHosts'),
+                offlineHosts: document.getElementById('offlineHosts'),
+                avgResponseTime: document.getElementById('avgResponseTime'),
+                totalUptime: document.getElementById('totalUptime')
+            };
+
+            if (elements.totalHosts) elements.totalHosts.textContent = totalHosts;
+            if (elements.onlineHosts) elements.onlineHosts.textContent = onlineCount;
+            if (elements.offlineHosts) elements.offlineHosts.textContent = offlineCount;
+            if (elements.avgResponseTime) elements.avgResponseTime.textContent = avgResponseTime;
+            if (elements.totalUptime) elements.totalUptime.textContent = `${totalUptime}%`;
+        }
+
+        // 初始化時立即更新統計
+        updateStats();
+    </script>
+</body>
+</html>
